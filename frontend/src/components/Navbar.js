@@ -54,21 +54,20 @@ export const Navbar = () => {
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          {/* Brand name — animated from center to left */}
+          {/* Brand name — animated from center to left (desktop only) */}
           <Link
             to="/"
             data-testid="brand-logo"
-            className={`absolute transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`absolute top-1/2 -translate-y-1/2 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               showFullNav
-                ? 'left-0 translate-x-0 lg:left-0'
+                ? 'left-1/2 -translate-x-1/2 lg:left-0 lg:translate-x-0'
                 : 'left-1/2 -translate-x-1/2'
             }`}
-            style={{ top: '50%', transform: showFullNav ? 'translateY(-50%)' : 'translate(-50%, -50%)' }}
           >
             <h1 className={`font-heading font-light tracking-tight whitespace-nowrap transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               showFullNav
-                ? 'text-2xl text-stone-900'
-                : 'text-3xl md:text-4xl text-white'
+                ? 'text-xl md:text-2xl text-stone-900'
+                : 'text-2xl md:text-3xl lg:text-4xl text-white'
             }`}>
               Artisan & Aura
             </h1>
