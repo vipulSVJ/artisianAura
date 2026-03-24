@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ChevronRight, MapPin, CreditCard, Package } from 'lucide-react';
+import { Check, ChevronRight, MapPin, CreditCard, Package, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,9 +11,23 @@ import API from '@/lib/api';
 
 const steps = [
   { id: 1, label: 'Shipping', icon: MapPin },
-  { id: 2, label: 'Review', icon: Package },
+  { id: 2, label: 'Review & Pay', icon: CreditCard },
   { id: 3, label: 'Confirmation', icon: Check },
 ];
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 export default function CheckoutPage() {
   const { user, login } = useAuth();
@@ -28,18 +42,61 @@ export default function CheckoutPage() {
     if (user) fetchCart();
   }, [user, fetchCart]);
 
-  if (!user) {
-    return (
-      <div className="pt-24 pb-20 min-h-screen flex items-center justify-center" data-testid="checkout-page">
-        <div className="text-center">
-          <h2 className="font-heading text-3xl text-stone-900 mb-4">Sign in to checkout</h2>
-          <Button onClick={login} className="bg-stone-900 text-white hover:bg-stone-800 rounded-full px-8 py-6 text-xs uppercase tracking-widest" data-testid="checkout-sign-in-btn">
-            Sign In
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleRazorpayPayment = useCallback(async () => {
+    setPlacing(true);
+    try {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        toast.error('Payment gateway failed to load. Please try again.');
+        setPlacing(false);
+        return;
+      }
+
+      const { data: orderData } = await API.post('/payment/create-order', { amount: cartTotal });
+
+      const options = {
+        key: process.env.REACT_APP_RAZORPAY_KEY_ID,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        order_id: orderData.order_id,
+        name: 'Artisan & Aura',
+        description: 'Handcrafted with care',
+        handler: async (response) => {
+          try {
+            const verifyRes = await API.post('/payment/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              shipping_address: address
+            });
+            setOrderId(verifyRes.data.order_id);
+            setStep(3);
+            toast.success('Payment successful! Order placed.');
+          } catch {
+            toast.error('Payment verification failed. Contact support.');
+          }
+          setPlacing(false);
+        },
+        modal: {
+          ondismiss: () => {
+            setPlacing(false);
+            toast.info('Payment cancelled');
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || '',
+        },
+        theme: { color: '#292524' }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      toast.error('Failed to initiate payment');
+      setPlacing(false);
+    }
+  }, [cartTotal, address, user]);
 
   const handlePlaceOrder = async () => {
     setPlacing(true);
@@ -58,6 +115,19 @@ export default function CheckoutPage() {
   };
 
   const isAddressValid = address.name && address.street && address.city && address.state && address.zip && address.phone;
+
+  if (!user) {
+    return (
+      <div className="pt-24 pb-20 min-h-screen flex items-center justify-center" data-testid="checkout-page">
+        <div className="text-center">
+          <h2 className="font-heading text-3xl text-stone-900 mb-4">Sign in to checkout</h2>
+          <Button onClick={login} className="bg-stone-900 text-white hover:bg-stone-800 rounded-full px-8 py-6 text-xs uppercase tracking-widest" data-testid="checkout-sign-in-btn">
+            Sign In
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-24 pb-20 min-h-screen" data-testid="checkout-page">
@@ -211,14 +281,26 @@ export default function CheckoutPage() {
               >
                 Back
               </Button>
-              <Button
-                onClick={handlePlaceOrder}
-                disabled={placing}
-                className="bg-stone-900 text-white hover:bg-stone-800 rounded-full px-10 py-6 text-xs uppercase tracking-[0.2em]"
-                data-testid="place-order-btn"
-              >
-                {placing ? 'Placing Order...' : 'Place Order'}
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleRazorpayPayment}
+                  disabled={placing}
+                  className="bg-[#D4A373] text-white hover:bg-[#c49366] rounded-full px-10 py-6 text-xs uppercase tracking-[0.2em]"
+                  data-testid="pay-razorpay-btn"
+                >
+                  <CreditCard size={16} className="mr-2" />
+                  {placing ? 'Processing...' : `Pay ₹${cartTotal.toFixed(2)}`}
+                </Button>
+                <Button
+                  onClick={handlePlaceOrder}
+                  disabled={placing}
+                  variant="outline"
+                  className="rounded-full px-8 py-6 text-xs uppercase tracking-wider border-stone-300"
+                  data-testid="place-order-btn"
+                >
+                  {placing ? 'Placing...' : 'Cash on Delivery'}
+                </Button>
+              </div>
             </div>
           </motion.div>
         )}

@@ -54,6 +54,10 @@ var userId = '{self.user_id}';
 var sessionToken = '{self.session_token}';
 var expiresAt = new Date(Date.now() + 7*24*60*60*1000);
 
+// Create user with referral fields
+var refName = 'TST';
+var referralCode = refName + Math.random().toString(36).substr(2, 5).toUpperCase();
+
 db.users.insertOne({{
   user_id: userId,
   email: 'test.user.{timestamp}@example.com',
@@ -61,6 +65,9 @@ db.users.insertOne({{
   picture: 'https://via.placeholder.com/150',
   phone: '+1234567890',
   address: {{}},
+  referral_code: referralCode,
+  referral_count: 0,
+  referred_by: null,
   created_at: new Date()
 }});
 
@@ -469,6 +476,80 @@ print('Test user and session created successfully');
             status = response.status_code if response else "No response"
             self.log_result("Profile - Update Profile", False, f"Status: {status}", 200, status)
 
+    def test_payment_operations(self):
+        """Test Razorpay payment operations"""
+        print("\n💳 Testing payment operations...")
+        
+        # First add an item to cart for payment testing
+        response = self.make_request('GET', '/products?limit=1')
+        if not response or response.status_code != 200:
+            self.log_result("Payment Operations", False, "Cannot get product for payment testing")
+            return
+        
+        product_id = response.json()['products'][0]['product_id']
+        product_price = response.json()['products'][0]['price']
+        
+        # Add item to cart
+        self.make_request('POST', '/cart', {'product_id': product_id, 'quantity': 1}, auth_required=True)
+        
+        # Test create Razorpay order
+        payment_data = {'amount': product_price}
+        response = self.make_request('POST', '/payment/create-order', payment_data, auth_required=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            expected_keys = ['order_id', 'amount', 'currency']
+            if all(key in data for key in expected_keys):
+                if data['currency'] == 'INR' and data['amount'] == int(float(product_price) * 100):
+                    self.log_result("Payment - Create Razorpay Order", True, f"Order created: {data['order_id']}")
+                else:
+                    self.log_result("Payment - Create Razorpay Order", False, f"Incorrect amount or currency. Expected: {int(float(product_price) * 100)} INR, Got: {data['amount']} {data['currency']}")
+            else:
+                self.log_result("Payment - Create Razorpay Order", False, f"Missing keys in response. Expected: {expected_keys}, Got: {list(data.keys())}")
+        else:
+            status = response.status_code if response else "No response"
+            self.log_result("Payment - Create Razorpay Order", False, f"Status: {status}", 200, status)
+
+    def test_referral_operations(self):
+        """Test referral system operations"""
+        print("\n🎁 Testing referral operations...")
+        
+        # Test get referral stats
+        response = self.make_request('GET', '/referral/stats', auth_required=True)
+        if response and response.status_code == 200:
+            data = response.json()
+            expected_keys = ['referral_code', 'referral_count']
+            if all(key in data for key in expected_keys):
+                referral_code = data['referral_code']
+                referral_count = data['referral_count']
+                if referral_code and isinstance(referral_count, int):
+                    self.log_result("Referral - Get Stats", True, f"Code: {referral_code}, Count: {referral_count}")
+                    
+                    # Test apply referral code with invalid code
+                    invalid_code_data = {'code': 'INVALID123'}
+                    response = self.make_request('POST', '/referral/apply', invalid_code_data, auth_required=True)
+                    if response and response.status_code == 404:
+                        self.log_result("Referral - Apply Invalid Code", True, "Correctly returned 404 for invalid code")
+                    else:
+                        status = response.status_code if response else "No response"
+                        self.log_result("Referral - Apply Invalid Code", False, f"Expected 404, got {status}", 404, status)
+                    
+                    # Test apply own referral code (should fail)
+                    own_code_data = {'code': referral_code}
+                    response = self.make_request('POST', '/referral/apply', own_code_data, auth_required=True)
+                    if response and response.status_code == 400:
+                        self.log_result("Referral - Apply Own Code", True, "Correctly prevented self-referral")
+                    else:
+                        status = response.status_code if response else "No response"
+                        self.log_result("Referral - Apply Own Code", False, f"Expected 400, got {status}", 400, status)
+                        
+                else:
+                    self.log_result("Referral - Get Stats", False, f"Invalid referral data format. Code: {referral_code}, Count: {referral_count}")
+            else:
+                self.log_result("Referral - Get Stats", False, f"Missing keys in response. Expected: {expected_keys}, Got: {list(data.keys())}")
+        else:
+            status = response.status_code if response else "No response"
+            self.log_result("Referral - Get Stats", False, f"Status: {status}", 200, status)
+
     def cleanup_test_data(self):
         """Clean up test user and session"""
         print("\n🧹 Cleaning up test data...")
@@ -512,6 +593,8 @@ print('Test data cleaned up');
             self.test_reviews_operations()
             self.test_orders_operations()
             self.test_profile_operations()
+            self.test_payment_operations()
+            self.test_referral_operations()
             
         finally:
             # Always cleanup

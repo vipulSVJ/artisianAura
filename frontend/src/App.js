@@ -1,4 +1,5 @@
 import "@/App.css";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -15,6 +16,14 @@ import CheckoutPage from "@/pages/CheckoutPage";
 import OrderHistoryPage from "@/pages/OrderHistoryPage";
 import ProfilePage from "@/pages/ProfilePage";
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname]);
+  return null;
+}
+
 function AppContent() {
   const location = useLocation();
 
@@ -25,6 +34,7 @@ function AppContent() {
 
   return (
     <>
+      <ScrollToTop />
       <Navbar />
       <main className="min-h-screen">
         <Routes>

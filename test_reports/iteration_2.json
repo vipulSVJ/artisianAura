@@ -1,0 +1,77 @@
+{
+  "summary": "Comprehensive testing of Artisan & Aura iteration 2 completed. Backend APIs working at 87.1% success rate with new payment and referral features operational. Frontend navbar animation partially working, scroll-to-top functional, checkout and profile pages fully operational with new features.",
+  "backend_issues": {
+    "minor_bugs": [
+      {
+        "endpoint": "/api/products/invalid_id",
+        "issue": "Request timeout on invalid product ID instead of returning 404",
+        "impact": "Minor - edge case handling",
+        "fix_priority": "LOW"
+      },
+      {
+        "endpoint": "/api/auth/me (unauthorized)",
+        "issue": "Request timeout on unauthorized access instead of returning 401",
+        "impact": "Minor - edge case handling",
+        "fix_priority": "LOW"
+      },
+      {
+        "endpoint": "/api/referral/apply (invalid/own code)",
+        "issue": "Request timeout on invalid referral codes instead of returning proper error codes",
+        "impact": "Minor - edge case handling",
+        "fix_priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Navbar",
+        "issue": "Nav links visible initially on landing page when they should be hidden before scrolling",
+        "selector": "text=\"Shop\"",
+        "fix_priority": "MEDIUM"
+      },
+      {
+        "component": "Navbar icons",
+        "issue": "Profile/cart icons have pointer-events-none on landing page preventing clicks",
+        "selector": "[data-testid=\"profile-icon\"], [data-testid=\"cart-icon\"]",
+        "fix_priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: Data seeding working",
+    "Backend: Products listing with all filters working",
+    "Backend: Product detail retrieval working",
+    "Backend: Categories and filters endpoints working",
+    "Backend: Authentication flow with valid tokens working",
+    "Backend: Complete cart CRUD operations working",
+    "Backend: Wishlist operations working",
+    "Backend: Reviews operations working",
+    "Backend: Orders operations working",
+    "Backend: Profile update operations working",
+    "Backend: NEW - Razorpay payment order creation working (returns order_id, amount, currency)",
+    "Backend: NEW - Referral stats endpoint working (returns referral_code, referral_count)",
+    "Frontend: Landing page loads correctly",
+    "Frontend: Brand logo perfectly centered initially (960px from left, viewport center 960px)",
+    "Frontend: Brand logo moves to left on scroll (368px from left)",
+    "Frontend: Scroll to top on navigation working (0px scroll position)",
+    "Frontend: NEW - Checkout page shows 'Pay ₹32.00' Razorpay button",
+    "Frontend: NEW - Checkout page shows 'Cash on Delivery' button",
+    "Frontend: NEW - Profile page shows Refer & Earn section with referral code 'TSTA88M4'",
+    "Frontend: NEW - Profile page shows copy/share buttons for referral",
+    "Frontend: NEW - Profile page shows referral code input to apply someone else's code",
+    "Frontend: All authenticated features working when accessed directly"
+  ],
+  "test_report_links": ["/app/backend_test.py"],
+  "success_percentage": {
+    "backend": "87.1%",
+    "frontend": "85%",
+    "overall": "86%"
+  },
+  "updated_files": ["/app/backend_test.py"],
+  "action_item_for_main_agent": "Fix navbar animation: 1) Nav links should be hidden initially on landing page before scrolling, 2) Profile/cart icons should be clickable on landing page (remove pointer-events-none class initially)",
+  "should_call_test_agent_after_fix": "false",
+  "should_main_agent_test_itself": "true"
+}

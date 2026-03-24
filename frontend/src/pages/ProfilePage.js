@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Package, Heart, LogOut, Save } from 'lucide-react';
+import { User, Package, Heart, LogOut, Save, Gift, Copy, Share2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,12 +15,17 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState({ street: '', city: '', state: '', zip: '' });
   const [saving, setSaving] = useState(false);
+  const [referralStats, setReferralStats] = useState({ referral_code: '', referral_count: 0 });
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [referralInput, setReferralInput] = useState('');
 
   useEffect(() => {
     if (user) {
       setName(user.name || '');
       setPhone(user.phone || '');
       setAddress(user.address || { street: '', city: '', state: '', zip: '' });
+      // Fetch referral stats
+      API.get('/referral/stats').then(res => setReferralStats(res.data)).catch(() => {});
     }
   }, [user]);
 
@@ -34,6 +39,38 @@ export default function ProfilePage() {
       toast.error('Failed to update profile');
     }
     setSaving(false);
+  };
+
+  const copyReferralCode = () => {
+    const code = referralStats.referral_code;
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      setCodeCopied(true);
+      toast.success('Referral code copied!');
+      setTimeout(() => setCodeCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  const shareReferral = () => {
+    const code = referralStats.referral_code;
+    const link = `${window.location.origin}/shop?ref=${code}`;
+    const text = `Join Artisan & Aura and get 10% off your first order! Use my referral code: ${code} — ${link}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Artisan & Aura Referral', text, url: link }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(text).then(() => toast.success('Referral link copied!')).catch(() => {});
+    }
+  };
+
+  const applyReferralCode = async () => {
+    if (!referralInput.trim()) return;
+    try {
+      const res = await API.post('/referral/apply', { code: referralInput.trim() });
+      toast.success(res.data.message);
+      setReferralInput('');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to apply referral');
+    }
   };
 
   if (!user) {
@@ -99,6 +136,78 @@ export default function ProfilePage() {
               <p className="text-xs text-stone-400">Saved items</p>
             </div>
           </button>
+        </div>
+
+        <Separator className="mb-10" />
+
+        {/* Refer & Earn */}
+        <div className="mb-10" data-testid="referral-section">
+          <div className="bg-gradient-to-br from-[#D4A373]/10 to-stone-50 rounded-2xl p-8 border border-[#D4A373]/20">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-[#D4A373]/20 rounded-full flex items-center justify-center">
+                <Gift size={20} className="text-[#D4A373]" />
+              </div>
+              <div>
+                <h3 className="text-sm uppercase tracking-widest text-stone-800 font-medium">Refer & Earn</h3>
+                <p className="text-xs text-stone-500 mt-0.5">Share the love, earn 10% off for you and your friend</p>
+              </div>
+            </div>
+
+            {referralStats.referral_code ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex-1 bg-white border border-stone-200 rounded-xl px-4 py-3 font-mono text-lg tracking-wider text-stone-800 text-center">
+                    {referralStats.referral_code}
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={copyReferralCode}
+                    className="rounded-full px-4 py-5 bg-stone-900 text-white hover:bg-stone-800"
+                    data-testid="copy-referral-btn"
+                  >
+                    {codeCopied ? <Check size={16} /> : <Copy size={16} />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={shareReferral}
+                    variant="outline"
+                    className="rounded-full px-4 py-5 border-stone-300"
+                    data-testid="share-referral-btn"
+                  >
+                    <Share2 size={16} />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-6 text-sm">
+                  <span className="text-stone-500">Friends referred: <span className="font-medium text-stone-800">{referralStats.referral_count}</span></span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-stone-500">Generating your referral code...</p>
+            )}
+
+            {/* Apply someone else's code */}
+            {!user?.referred_by && (
+              <div className="mt-6 pt-6 border-t border-stone-200/50">
+                <p className="text-xs uppercase tracking-widest text-stone-500 mb-3 font-medium">Have a referral code?</p>
+                <div className="flex gap-2">
+                  <input
+                    value={referralInput}
+                    onChange={e => setReferralInput(e.target.value)}
+                    placeholder="Enter code"
+                    className="flex-1 bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-stone-400"
+                    data-testid="apply-referral-input"
+                  />
+                  <Button
+                    onClick={applyReferralCode}
+                    className="bg-[#D4A373] text-white hover:bg-[#c49366] rounded-xl px-6"
+                    data-testid="apply-referral-btn"
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <Separator className="mb-10" />

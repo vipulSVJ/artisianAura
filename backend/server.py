@@ -10,6 +10,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
+import razorpay
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -17,6 +18,12 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Razorpay client
+razorpay_client = razorpay.Client(auth=(
+    os.environ.get('RAZORPAY_KEY_ID', ''),
+    os.environ.get('RAZORPAY_KEY_SECRET', '')
+))
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -88,6 +95,8 @@ async def exchange_session(request: Request, response: Response):
         )
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
+        ref_name = data["name"][:3].upper().replace(" ", "X")
+        referral_code = f"{ref_name}{uuid.uuid4().hex[:5].upper()}"
         await db.users.insert_one({
             "user_id": user_id,
             "email": email,
@@ -95,10 +104,24 @@ async def exchange_session(request: Request, response: Response):
             "picture": data.get("picture", ""),
             "phone": "",
             "address": {},
+            "referral_code": referral_code,
+            "referral_count": 0,
+            "referred_by": None,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
 
     session_token = data.get("session_token", f"st_{uuid.uuid4().hex}")
+
+    # Ensure user has referral fields
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if user_doc and not user_doc.get("referral_code"):
+        ref_name = data["name"][:3].upper().replace(" ", "X")
+        referral_code = f"{ref_name}{uuid.uuid4().hex[:5].upper()}"
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"referral_code": referral_code, "referral_count": 0, "referred_by": None}}
+        )
+
     await db.user_sessions.insert_one({
         "user_id": user_id,
         "session_token": session_token,
@@ -784,6 +807,117 @@ async def seed_data():
     ]
     await db.products.insert_many(products)
     return {"message": f"Seeded {len(products)} products"}
+
+
+# ─── Payment (Razorpay) ───
+@api_router.post("/payment/create-order")
+async def create_payment_order(request: Request, user: dict = Depends(get_current_user)):
+    body = await request.json()
+    amount = body.get("amount", 0)
+    try:
+        razorpay_order = razorpay_client.order.create({
+            "amount": int(float(amount) * 100),
+            "currency": "INR",
+            "payment_capture": 1,
+            "receipt": f"rcpt_{uuid.uuid4().hex[:8]}"
+        })
+        return {
+            "order_id": razorpay_order["id"],
+            "amount": razorpay_order["amount"],
+            "currency": razorpay_order["currency"]
+        }
+    except Exception as e:
+        logger.error(f"Razorpay order creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Payment order creation failed")
+
+
+@api_router.post("/payment/verify")
+async def verify_payment(request: Request, user: dict = Depends(get_current_user)):
+    body = await request.json()
+    try:
+        razorpay_client.utility.verify_payment_signature({
+            'razorpay_order_id': body['razorpay_order_id'],
+            'razorpay_payment_id': body['razorpay_payment_id'],
+            'razorpay_signature': body['razorpay_signature']
+        })
+    except Exception:
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+
+    cart_items = await db.cart.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    if not cart_items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    order_items = []
+    total = 0
+    for item in cart_items:
+        product = await db.products.find_one({"product_id": item["product_id"]}, {"_id": 0})
+        if product:
+            subtotal = product["price"] * item["quantity"]
+            total += subtotal
+            order_items.append({
+                "product_id": product["product_id"],
+                "name": product["name"],
+                "price": product["price"],
+                "quantity": item["quantity"],
+                "image": product["images"][0] if product.get("images") else "",
+                "subtotal": round(subtotal, 2)
+            })
+            await db.products.update_one(
+                {"product_id": product["product_id"]},
+                {"$inc": {"stock": -item["quantity"]}}
+            )
+
+    order_doc = {
+        "order_id": f"ord_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "items": order_items,
+        "total": round(total, 2),
+        "status": "confirmed",
+        "payment_method": "razorpay",
+        "razorpay_order_id": body.get("razorpay_order_id"),
+        "razorpay_payment_id": body.get("razorpay_payment_id"),
+        "shipping_address": body.get("shipping_address", {}),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.orders.insert_one(order_doc)
+    await db.cart.delete_many({"user_id": user["user_id"]})
+    order_doc.pop("_id", None)
+    return order_doc
+
+
+# ─── Referral System ───
+@api_router.get("/referral/stats")
+async def get_referral_stats(user: dict = Depends(get_current_user)):
+    return {
+        "referral_code": user.get("referral_code", ""),
+        "referral_count": user.get("referral_count", 0),
+    }
+
+
+@api_router.post("/referral/apply")
+async def apply_referral(request: Request, user: dict = Depends(get_current_user)):
+    body = await request.json()
+    code = body.get("code", "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Referral code required")
+
+    referrer = await db.users.find_one({"referral_code": code}, {"_id": 0})
+    if not referrer:
+        raise HTTPException(status_code=404, detail="Invalid referral code")
+    if referrer["user_id"] == user["user_id"]:
+        raise HTTPException(status_code=400, detail="Cannot use your own referral code")
+    if user.get("referred_by"):
+        raise HTTPException(status_code=400, detail="You have already used a referral code")
+
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"referred_by": referrer["user_id"]}}
+    )
+    await db.users.update_one(
+        {"user_id": referrer["user_id"]},
+        {"$inc": {"referral_count": 1}}
+    )
+    return {"message": "Referral applied! Both you and your friend earn 10% off your next order."}
 
 
 # ─── Include router & middleware ───
