@@ -77,8 +77,8 @@ export const Navbar = () => {
           {/* Center nav links — fade in on scroll */}
           <div className={`hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             showFullNav
-              ? 'opacity-100 translate-y-0'
-              : 'opacity-0 -translate-y-3 pointer-events-none'
+              ? 'opacity-100 translate-y-0 visible'
+              : 'opacity-0 -translate-y-3 pointer-events-none invisible'
           }`}>
             {navLinks.map(link => (
               <Link
@@ -108,8 +108,8 @@ export const Navbar = () => {
                 <Link
                   to="/wishlist"
                   data-testid="wishlist-icon"
-                  className={`p-2 transition-all duration-500 ${
-                    showFullNav ? 'text-stone-500 hover:text-stone-900 opacity-100' : 'text-white/70 hover:text-white opacity-0 pointer-events-none'
+                  className={`p-2 transition-colors duration-500 ${
+                    showFullNav ? 'text-stone-500 hover:text-stone-900' : 'text-white/70 hover:text-white'
                   }`}
                 >
                   <Heart size={18} />
@@ -117,8 +117,8 @@ export const Navbar = () => {
                 <Link
                   to="/cart"
                   data-testid="cart-icon"
-                  className={`relative p-2 transition-all duration-500 ${
-                    showFullNav ? 'text-stone-500 hover:text-stone-900 opacity-100' : 'text-white/70 hover:text-white opacity-0 pointer-events-none'
+                  className={`relative p-2 transition-colors duration-500 ${
+                    showFullNav ? 'text-stone-500 hover:text-stone-900' : 'text-white/70 hover:text-white'
                   }`}
                 >
                   <ShoppingBag size={18} />
@@ -131,8 +131,8 @@ export const Navbar = () => {
                 <Link
                   to="/profile"
                   data-testid="profile-icon"
-                  className={`p-2 transition-all duration-500 ${
-                    showFullNav ? 'text-stone-500 hover:text-stone-900 opacity-100' : 'text-white/70 hover:text-white opacity-0 pointer-events-none'
+                  className={`p-2 transition-colors duration-500 ${
+                    showFullNav ? 'text-stone-500 hover:text-stone-900' : 'text-white/70 hover:text-white'
                   }`}
                 >
                   <User size={18} />
