@@ -1,0 +1,194 @@
+{
+  "brand_identity": {
+    "name": "Artisan & Aura",
+    "description": "A sanctuary for handmade, artisanal interior decor.",
+    "emotional_archetype": "Organic & Earthy",
+    "tone": "Warm, Tactile, Sophisticated, Calm, Premium",
+    "theme_mode": "light",
+    "keywords": ["craftsmanship", "texture", "serenity", "organic", "timeless"]
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Cormorant Garamond, serif",
+      "body": "Manrope, sans-serif",
+      "accent": "Playfair Display, serif"
+    },
+    "imports": [
+      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
+    ],
+    "scale": {
+      "h1": "text-5xl md:text-7xl font-light tracking-tight leading-[0.95]",
+      "h2": "text-4xl md:text-5xl font-light tracking-tight leading-tight",
+      "h3": "text-2xl md:text-3xl font-normal tracking-normal",
+      "body_lg": "text-lg md:text-xl font-light leading-relaxed",
+      "body": "text-base font-light leading-relaxed text-stone-600",
+      "caption": "text-sm uppercase tracking-widest font-medium text-stone-500"
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": "#FDFBF7",
+      "foreground": "#1C1917",
+      "card": "#FFFFFF",
+      "card_foreground": "#1C1917",
+      "popover": "#FFFFFF",
+      "popover_foreground": "#1C1917",
+      "primary": "#292524",
+      "primary_foreground": "#FAFAF9",
+      "secondary": "#E7E5E4",
+      "secondary_foreground": "#1C1917",
+      "muted": "#F5F5F4",
+      "muted_foreground": "#78716C",
+      "accent": "#D4A373",
+      "accent_foreground": "#FFFFFF",
+      "destructive": "#EF4444",
+      "destructive_foreground": "#FAFAF9",
+      "border": "#E7E5E4",
+      "input": "#E7E5E4",
+      "ring": "#D4A373"
+    },
+    "gradients": {
+      "hero_overlay": "linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.3))",
+      "subtle_glow": "radial-gradient(circle at center, rgba(212, 163, 115, 0.15) 0%, rgba(253, 251, 247, 0) 70%)"
+    },
+    "usage_rules": {
+      "no_gradients_text": true,
+      "primary_usage": "Only for high-priority CTAs (Buy Now, Checkout)",
+      "text_contrast": "Ensure WCAG AA compliance. Use #1C1917 for main text, #57534E for secondary."
+    }
+  },
+  "spacing_and_layout": {
+    "container": {
+      "default": "max-w-7xl mx-auto px-6 md:px-12",
+      "wide": "max-w-[1920px] mx-auto px-4 md:px-8",
+      "narrow": "max-w-3xl mx-auto px-6"
+    },
+    "section_spacing": "py-20 md:py-32",
+    "component_spacing": "gap-8 md:gap-12",
+    "grid_system": {
+      "bento_featured": "grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-[400px]",
+      "product_list": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16",
+      "gallery": "grid grid-cols-1 md:grid-cols-12 gap-4"
+    },
+    "border_radius": {
+      "default": "rounded-xl",
+      "button": "rounded-full",
+      "card": "rounded-2xl",
+      "image": "rounded-lg"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-stone-800 rounded-full px-8 py-6 text-sm uppercase tracking-widest transition-all duration-300",
+      "secondary": "bg-transparent border border-stone-300 text-stone-800 hover:border-stone-800 hover:bg-stone-50 rounded-full px-8 py-6 text-sm uppercase tracking-widest transition-all duration-300",
+      "ghost": "text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg px-4 py-2"
+    },
+    "cards": {
+      "product": "group relative flex flex-col gap-4 bg-transparent border-none shadow-none",
+      "feature": "bg-white/50 backdrop-blur-sm border border-stone-100 p-8 rounded-2xl hover:shadow-lg transition-all duration-500"
+    },
+    "inputs": {
+      "default": "bg-transparent border-b border-stone-300 rounded-none px-0 py-4 focus:ring-0 focus:border-stone-800 placeholder:text-stone-400 text-stone-800 transition-colors"
+    },
+    "navigation": {
+      "wrapper": "fixed top-0 left-0 right-0 z-50 bg-[#FDFBF7]/80 backdrop-blur-md border-b border-stone-100/50",
+      "link": "text-sm uppercase tracking-widest text-stone-600 hover:text-stone-900 transition-colors"
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "settings": {
+      "transition_smooth": { "duration": 0.8, "ease": [0.22, 1, 0.36, 1] },
+      "stagger_delay": 0.1
+    },
+    "variants": {
+      "fadeInUp": {
+        "initial": { "opacity": 0, "y": 40 },
+        "animate": { "opacity": 1, "y": 0 }
+      },
+      "fadeIn": {
+        "initial": { "opacity": 0 },
+        "animate": { "opacity": 1 }
+      },
+      "scaleIn": {
+        "initial": { "scale": 0.95, "opacity": 0 },
+        "animate": { "scale": 1, "opacity": 1 }
+      }
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "0 10px 40px -10px rgba(28, 25, 23, 0.05)",
+      "hover": "0 20px 40px -10px rgba(28, 25, 23, 0.1)"
+    },
+    "textures": {
+      "grain": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")"
+    },
+    "micro_interactions": {
+      "hover_lift": "hover:-translate-y-1 transition-transform duration-300",
+      "image_zoom": "overflow-hidden group-hover:scale-105 transition-transform duration-700 ease-out"
+    }
+  },
+  "images": {
+    "hero": {
+      "url": "https://images.unsplash.com/photo-1763824372078-3bd2b8ae6aed?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwyfHxhcnRpc2FuYWwlMjBoYW5kbWFkZSUyMGNlcmFtaWNzJTIwcG90dGVyeSUyMHN0dWRpb3xlbnwwfHx8fDE3NzQzNDM3MzR8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Artisanal ceramics on display",
+      "overlay_opacity": 0.2
+    },
+    "categories": [
+      {
+        "name": "Ceramics",
+        "url": "https://images.unsplash.com/photo-1767032485205-3eb089e5dc33?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwzfHxhcnRpc2FuYWwlMjBoYW5kbWFkZSUyMGNlcmFtaWNzJTIwcG90dGVyeSUyMHN0dWRpb3xlbnwwfHx8fDE3NzQzNDM3MzR8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "name": "Candles & Aromas",
+        "url": "https://images.unsplash.com/photo-1762102866829-427130c23d12?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwxfHxhZXN0aGV0aWMlMjBoYW5kbWFkZSUyMGNhbmRsZXMlMjBjb3p5JTIwaG9tZSUyMGRlY29yfGVufDB8fHx8MTc3NDM0MzczNXww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "name": "Wall Decor",
+        "url": "https://images.unsplash.com/photo-1511877448058-cbf344a6a85a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwyfHxib2hvJTIwbWFjcmFtZSUyMHdhbGwlMjBoYW5naW5nJTIwdGV4dHVyZWQlMjBhcnR8ZW58MHx8fHwxNzc0MzQzNzM2fDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "name": "Textiles",
+        "url": "https://images.unsplash.com/photo-1761330439582-c7fd39368cff?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwyfHxtaW5pbWFsaXN0JTIwYXJ0aXNhbmFsJTIwaW50ZXJpb3IlMjBkZXNpZ24lMjBsaXZpbmclMjByb29tfGVufDB8fHx8MTc3NDM0MzczN3ww&ixlib=rb-4.1.0&q=85"
+      }
+    ],
+    "social_proof": [
+      "https://images.unsplash.com/photo-1772380407365-4688a3c03739?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwyfHxhZXN0aGV0aWMlMjBoYW5kbWFkZSUyMGNhbmRsZXMlMjBjb3p5JTIwaG9tZSUyMGRlY29yfGVufDB8fHx8MTc3NDM0MzczNXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1762545112336-646c69e4888b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxtaW5pbWFsaXN0JTIwYXJ0aXNhbmFsJTIwaW50ZXJpb3IlMjBkZXNpZ24lMjBsaXZpbmclMjByb29tfGVufDB8fHx8MTc3NDM0MzczN3ww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1758366278318-d0f457e3bb4f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwzfHxhZXN0aGV0aWMlMjBoYW5kbWFkZSUyMGNhbmRsZXMlMjBjb3p5JTIwaG9tZSUyMGRlY29yfGVufDB8fHx8MTc3NDM0MzczNXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1763824372117-1ff339b522e9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxhcnRpc2FuYWwlMjBoYW5kbWFkZSUyMGNlcmFtaWNzJTIwcG90dGVyeSUyMHN0dWRpb3xlbnwwfHx8fDE3NzQzNDM3MzR8MA&ixlib=rb-4.1.0&q=85"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "INSTALLATION: Run `npm install framer-motion lucide-react clsx tailwind-merge` first.",
+    "THEME SETUP: Modify `tailwind.config.js` to use the colors defined in `brand_identity.colors`. DO NOT use default shadcn slate colors.",
+    "FONTS: Add the Google Fonts import to `index.css` immediately.",
+    "LAYOUT: Use the `spacing_and_layout` rules. Do not create cramped layouts. Always use `py-20` or `py-32` for section vertical spacing.",
+    "COMPONENTS: Customize shadcn components. Remove sharp corners (use `rounded-xl` or `rounded-2xl`). Remove heavy borders (use subtle `border-stone-200`).",
+    "INTERACTIONS: All buttons and cards MUST have hover states defined in `visual_enhancers`. Use `framer-motion` for page entrance animations.",
+    "IMAGES: Use the provided Unsplash URLs for the MVP. Do not leave image src empty.",
+    "NAVIGATION: Create a sticky header with a blur effect (`backdrop-blur-md`). Center the logo (Serif font).",
+    "FOOTER: Create a large, multi-column footer with the brand mission statement."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
