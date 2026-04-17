@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingBag, Heart, User, Menu, X, Search, LogOut } from 'lucide-react';
+import { ShoppingBag, Heart, User, Menu, X, Search, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
@@ -145,6 +145,19 @@ export const Navbar = () => {
                 >
                   <LogOut size={18} />
                 </button>
+                {user.is_admin && (
+                  <Link
+                    to="/admin"
+                    data-testid="admin-link"
+                    className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-medium transition-all duration-500 ${
+                      showFullNav
+                        ? 'bg-[#D4A373]/10 text-[#D4A373] hover:bg-[#D4A373]/20 opacity-100'
+                        : 'opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <Shield size={12} /> Admin
+                  </Link>
+                )}
               </>
             ) : (
               <Button
@@ -179,6 +192,9 @@ export const Navbar = () => {
           {user && (
             <>
               <Link to="/orders" className="block text-sm uppercase tracking-widest text-stone-600 py-2" onClick={() => setMenuOpen(false)}>Orders</Link>
+              {user.is_admin && (
+                <Link to="/admin" className="block text-sm uppercase tracking-widest text-[#D4A373] py-2" onClick={() => setMenuOpen(false)}>Admin Panel</Link>
+              )}
               <button
                 className="block text-sm uppercase tracking-widest text-stone-600 py-2"
                 onClick={() => { logout(); setMenuOpen(false); }}

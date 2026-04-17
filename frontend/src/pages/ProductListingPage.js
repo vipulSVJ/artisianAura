@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -62,8 +62,28 @@ export default function ProductListingPage() {
     } else {
       params.delete(key);
     }
-    params.set('page', '1');
+    // Only reset to page 1 when changing filters, NOT when navigating pages
+    if (key !== 'page') {
+      params.set('page', '1');
+    }
     setSearchParams(params);
+  };
+
+  // Build smart page numbers with ellipsis
+  const getPageNumbers = () => {
+    const items = [];
+    if (pages <= 7) {
+      for (let i = 1; i <= pages; i++) items.push(i);
+    } else {
+      items.push(1);
+      if (page > 3) items.push('...');
+      const start = Math.max(2, page - 1);
+      const end = Math.min(pages - 1, page + 1);
+      for (let i = start; i <= end; i++) items.push(i);
+      if (page < pages - 2) items.push('...');
+      items.push(pages);
+    }
+    return items;
   };
 
   const clearFilters = () => {
@@ -232,21 +252,46 @@ export default function ProductListingPage() {
 
             {/* Pagination */}
             {pages > 1 && (
-              <div className="flex justify-center gap-2 mt-16">
-                {[...Array(pages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => updateFilter('page', (i + 1).toString())}
-                    className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                      page === i + 1
-                        ? 'bg-stone-900 text-white'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                    data-testid={`page-${i + 1}`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+              <div className="flex justify-center items-center gap-2 mt-16">
+                {/* Previous */}
+                <button
+                  onClick={() => updateFilter('page', (page - 1).toString())}
+                  disabled={page === 1}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-stone-100 text-stone-600 hover:bg-stone-200"
+                  data-testid="page-prev"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                {/* Page numbers with ellipsis */}
+                {getPageNumbers().map((item, i) =>
+                  item === '...' ? (
+                    <span key={`ellipsis-${i}`} className="w-10 h-10 flex items-center justify-center text-sm text-stone-400">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => updateFilter('page', item.toString())}
+                      className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                        page === item
+                          ? 'bg-stone-900 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                      data-testid={`page-${item}`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+                {/* Next */}
+                <button
+                  onClick={() => updateFilter('page', (page + 1).toString())}
+                  disabled={page === pages}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-stone-100 text-stone-600 hover:bg-stone-200"
+                  data-testid="page-next"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             )}
           </>

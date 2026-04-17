@@ -111,7 +111,7 @@ export default function WishlistPage() {
                 <div>
                   <p className="text-xs uppercase tracking-wider text-stone-400">{item.product?.category}</p>
                   <h3 className="font-heading text-lg text-stone-900 mt-1">{item.product?.name}</h3>
-                  <p className="text-base font-medium text-stone-900 mt-1">${item.product?.price?.toFixed(2)}</p>
+                  <p className="text-base font-medium text-stone-900 mt-1">₹{item.product?.price?.toFixed(2)}</p>
                   <div className="flex gap-2 mt-3">
                     <Button
                       size="sm"

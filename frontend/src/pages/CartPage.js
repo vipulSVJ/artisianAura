@@ -92,7 +92,7 @@ export default function CartPage() {
                         </button>
                       </div>
                       <span className="text-base font-medium text-stone-900">
-                        ${((item.product?.price || 0) * item.quantity).toFixed(2)}
+                        ₹{((item.product?.price || 0) * item.quantity).toFixed(2)}
                       </span>
                       <button
                         onClick={() => removeFromCart(item.product_id)}
@@ -114,7 +114,7 @@ export default function CartPage() {
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm text-stone-600">
                     <span>Subtotal</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>₹{cartTotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-stone-600">
                     <span>Shipping</span>
@@ -124,7 +124,7 @@ export default function CartPage() {
                 <Separator className="mb-6" />
                 <div className="flex justify-between text-lg font-medium text-stone-900 mb-8">
                   <span>Total</span>
-                  <span>${cartTotal.toFixed(2)}</span>
+                  <span>₹{cartTotal.toFixed(2)}</span>
                 </div>
                 <Button
                   onClick={() => navigate('/checkout')}

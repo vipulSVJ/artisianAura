@@ -84,7 +84,7 @@ export default function OrderHistoryPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
                 className="border border-stone-100 rounded-2xl p-6 hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-                onClick={() => navigate(`/orders`)}
+                onClick={() => navigate(`/orders/${order.order_id}`)}
                 data-testid={`order-${order.order_id}`}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -109,7 +109,7 @@ export default function OrderHistoryPage() {
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-medium text-stone-900">${order.total?.toFixed(2)}</span>
+                  <span className="text-base font-medium text-stone-900">₹{order.total?.toFixed(2)}</span>
                   <span className="text-xs text-stone-400">{order.items?.length} item{order.items?.length > 1 ? 's' : ''}</span>
                 </div>
               </motion.div>

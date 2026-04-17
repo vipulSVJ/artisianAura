@@ -157,9 +157,9 @@ export default function ProductDetailPage() {
 
             {/* Price */}
             <div className="flex items-center gap-3 mb-8">
-              <span className="text-3xl font-light text-stone-900" data-testid="product-price">${product.price.toFixed(2)}</span>
+              <span className="text-3xl font-light text-stone-900" data-testid="product-price">₹{product.price.toFixed(2)}</span>
               {product.original_price && (
-                <span className="text-lg text-stone-400 line-through">${product.original_price.toFixed(2)}</span>
+                <span className="text-lg text-stone-400 line-through">₹{product.original_price.toFixed(2)}</span>
               )}
             </div>
 

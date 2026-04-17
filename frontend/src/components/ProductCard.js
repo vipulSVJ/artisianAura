@@ -109,9 +109,9 @@ export const ProductCard = ({ product, index = 0 }) => {
             {product.name}
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-base font-medium text-stone-900">${product.price.toFixed(2)}</span>
+            <span className="text-base font-medium text-stone-900">₹{product.price.toFixed(2)}</span>
             {product.original_price && (
-              <span className="text-sm text-stone-400 line-through">${product.original_price.toFixed(2)}</span>
+              <span className="text-sm text-stone-400 line-through">₹{product.original_price.toFixed(2)}</span>
             )}
           </div>
           {product.rating_count > 0 && (

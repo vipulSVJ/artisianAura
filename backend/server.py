@@ -11,12 +11,13 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
 import razorpay
+import certifi
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
 db = client[os.environ['DB_NAME']]
 
 # Razorpay client
@@ -24,6 +25,9 @@ razorpay_client = razorpay.Client(auth=(
     os.environ.get('RAZORPAY_KEY_ID', ''),
     os.environ.get('RAZORPAY_KEY_SECRET', '')
 ))
+
+# Admin emails — loaded from .env, comma-separated
+ADMIN_EMAILS = [e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -67,61 +71,115 @@ async def get_optional_user(request: Request):
         return None
 
 
-# ─── Auth Endpoints ───
-@api_router.post("/auth/session")
-async def exchange_session(request: Request, response: Response):
-    body = await request.json()
-    session_id = body.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
+async def get_admin_user(request: Request) -> dict:
+    """Dependency: requires authenticated user with is_admin=True."""
+    user = await get_current_user(request)
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 
-    # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+
+
+# ─── Google OAuth Endpoints ───
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+@api_router.get("/auth/google")
+async def google_login():
+    """Redirect the browser to Google's OAuth consent screen."""
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    redirect_uri = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000').rstrip('/')}/api/auth/google/callback".replace(
+        "/api/auth/google/callback", ""
+    )
+    # The redirect_uri must match what's registered in Google Cloud Console
+    backend_callback = "http://localhost:8000/api/auth/google/callback"
+    params = {
+        "client_id": client_id,
+        "redirect_uri": backend_callback,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    from urllib.parse import urlencode
+    from starlette.responses import RedirectResponse
+    return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+
+
+@api_router.get("/auth/google/callback")
+async def google_callback(code: str = None, error: str = None):
+    """Handle Google's redirect, exchange code for user info, create session."""
+    from starlette.responses import RedirectResponse
+    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
+    if error or not code:
+        return RedirectResponse(f"{frontend_url}/?auth=error")
+
+    backend_callback = "http://localhost:8000/api/auth/google/callback"
+
+    # 1. Exchange authorization code for tokens
     async with httpx.AsyncClient() as http_client:
-        resp = await http_client.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
+        token_resp = await http_client.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "code": code,
+                "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+                "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+                "redirect_uri": backend_callback,
+                "grant_type": "authorization_code",
+            },
         )
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session")
-        data = resp.json()
+        if token_resp.status_code != 200:
+            logger.error(f"Token exchange failed: {token_resp.text}")
+            return RedirectResponse(f"{frontend_url}/?auth=error")
+        tokens = token_resp.json()
 
-    email = data["email"]
+        # 2. Fetch user info from Google
+        userinfo_resp = await http_client.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        if userinfo_resp.status_code != 200:
+            logger.error(f"Userinfo fetch failed: {userinfo_resp.text}")
+            return RedirectResponse(f"{frontend_url}/?auth=error")
+        google_user = userinfo_resp.json()
+
+    email = google_user.get("email", "")
+    name = google_user.get("name", email.split("@")[0])
+    picture = google_user.get("picture", "")
+
+    # 3. Create or update user in MongoDB
+    # Check if this email should be an admin
+    is_admin = email.lower() in ADMIN_EMAILS
+
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         user_id = existing["user_id"]
         await db.users.update_one(
             {"email": email},
-            {"$set": {"name": data["name"], "picture": data.get("picture", "")}}
+            {"$set": {"name": name, "picture": picture, "is_admin": is_admin}}
         )
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        ref_name = data["name"][:3].upper().replace(" ", "X")
+        ref_name = name[:3].upper().replace(" ", "X")
         referral_code = f"{ref_name}{uuid.uuid4().hex[:5].upper()}"
         await db.users.insert_one({
             "user_id": user_id,
             "email": email,
-            "name": data["name"],
-            "picture": data.get("picture", ""),
+            "name": name,
+            "picture": picture,
             "phone": "",
             "address": {},
+            "is_admin": is_admin,
             "referral_code": referral_code,
             "referral_count": 0,
             "referred_by": None,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
 
-    session_token = data.get("session_token", f"st_{uuid.uuid4().hex}")
-
-    # Ensure user has referral fields
-    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    if user_doc and not user_doc.get("referral_code"):
-        ref_name = data["name"][:3].upper().replace(" ", "X")
-        referral_code = f"{ref_name}{uuid.uuid4().hex[:5].upper()}"
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {"referral_code": referral_code, "referral_count": 0, "referred_by": None}}
-        )
-
+    # 4. Create session
+    session_token = f"st_{uuid.uuid4().hex}"
     await db.user_sessions.insert_one({
         "user_id": user_id,
         "session_token": session_token,
@@ -129,12 +187,11 @@ async def exchange_session(request: Request, response: Response):
         "created_at": datetime.now(timezone.utc).isoformat()
     })
 
-    response.set_cookie(
-        key="session_token", value=session_token,
-        httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 60 * 60
-    )
-    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    return user
+    # 5. Redirect to frontend, passing token in URL so frontend stores it in localStorage.
+    # Using a URL param avoids cross-port cookie issues in local development.
+    from urllib.parse import urlencode
+    redirect_url = f"{frontend_url}/auth/callback?{urlencode({'token': session_token})}"
+    return RedirectResponse(redirect_url)
 
 
 @api_router.get("/auth/me")
@@ -144,11 +201,18 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
+    # Support both cookie and Bearer token
     session_token = request.cookies.get("session_token")
+    if not session_token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            session_token = auth_header.split(" ")[1]
     if session_token:
         await db.user_sessions.delete_one({"session_token": session_token})
-    response.delete_cookie("session_token", path="/", secure=True, samesite="none")
+    response.delete_cookie("session_token", path="/")
     return {"message": "Logged out"}
+
+
 
 
 # ─── Products ───
@@ -386,15 +450,17 @@ async def create_order(request: Request, user: dict = Depends(get_current_user))
                 {"$inc": {"stock": -item["quantity"]}}
             )
 
+    now = datetime.now(timezone.utc).isoformat()
     order_doc = {
         "order_id": f"ord_{uuid.uuid4().hex[:12]}",
         "user_id": user["user_id"],
         "items": order_items,
         "total": round(total, 2),
         "status": "confirmed",
+        "status_history": [{"status": "confirmed", "timestamp": now, "note": "Order placed"}],
         "shipping_address": body.get("shipping_address", {}),
         "payment_method": body.get("payment_method", "cod"),
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": now
     }
     await db.orders.insert_one(order_doc)
     await db.cart.delete_many({"user_id": user["user_id"]})
@@ -415,6 +481,32 @@ async def get_order(order_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Order not found")
     return order
 
+
+@api_router.post("/orders/{order_id}/cancel")
+async def cancel_order(order_id: str, user: dict = Depends(get_current_user)):
+    """Customer can cancel their own order, but only if status is 'confirmed'."""
+    order = await db.orders.find_one({"order_id": order_id, "user_id": user["user_id"]})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order["status"] != "confirmed":
+        raise HTTPException(status_code=400, detail="Order can only be cancelled while in 'confirmed' status")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.orders.update_one(
+        {"order_id": order_id},
+        {
+            "$set": {"status": "cancelled"},
+            "$push": {"status_history": {"status": "cancelled", "timestamp": now, "note": "Cancelled by customer"}},
+        }
+    )
+    # Restore stock
+    for item in order.get("items", []):
+        await db.products.update_one(
+            {"product_id": item["product_id"]},
+            {"$inc": {"stock": item["quantity"]}}
+        )
+    updated = await db.orders.find_one({"order_id": order_id}, {"_id": 0})
+    return updated
 
 # ─── Profile ───
 @api_router.put("/profile")
@@ -918,6 +1010,250 @@ async def apply_referral(request: Request, user: dict = Depends(get_current_user
         {"$inc": {"referral_count": 1}}
     )
     return {"message": "Referral applied! Both you and your friend earn 10% off your next order."}
+
+
+# ─── Image Normalization Helper ───
+def normalize_images(images):
+    """Convert image list to [{url, source}] format. Handles legacy string arrays."""
+    if not images:
+        return []
+    result = []
+    for img in images:
+        if isinstance(img, str):
+            result.append({"url": img, "source": "external"})
+        elif isinstance(img, dict) and "url" in img:
+            result.append(img)
+    return result
+
+
+# ─── Admin Endpoints ───
+
+@api_router.get("/admin/stats")
+async def admin_stats(admin: dict = Depends(get_admin_user)):
+    total_products = await db.products.count_documents({})
+    total_orders = await db.orders.count_documents({})
+    total_users = await db.users.count_documents({})
+
+    # Revenue
+    pipeline = [{"$group": {"_id": None, "revenue": {"$sum": "$total"}}}]
+    rev = await db.orders.aggregate(pipeline).to_list(1)
+    revenue = rev[0]["revenue"] if rev else 0
+
+    # Recent orders
+    recent = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+
+    # Orders by status
+    status_pipeline = [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
+    status_agg = await db.orders.aggregate(status_pipeline).to_list(20)
+    orders_by_status = {item["_id"]: item["count"] for item in status_agg}
+
+    return {
+        "total_products": total_products,
+        "total_orders": total_orders,
+        "total_users": total_users,
+        "revenue": round(revenue, 2),
+        "recent_orders": recent,
+        "orders_by_status": orders_by_status,
+    }
+
+
+@api_router.get("/admin/products")
+async def admin_list_products(
+    page: int = 1,
+    limit: int = 20,
+    search: Optional[str] = None,
+    admin: dict = Depends(get_admin_user),
+):
+    query = {}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"product_id": {"$regex": search, "$options": "i"}},
+        ]
+    total = await db.products.count_documents(query)
+    skip = (page - 1) * limit
+    products = await db.products.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    # Normalize images
+    for p in products:
+        p["images"] = normalize_images(p.get("images", []))
+    return {"products": products, "total": total, "page": page, "pages": max(1, (total + limit - 1) // limit)}
+
+
+@api_router.post("/admin/products")
+async def admin_create_product(request: Request, admin: dict = Depends(get_admin_user)):
+    body = await request.json()
+    product_id = f"prod_{uuid.uuid4().hex[:6]}"
+    slug = body.get("name", "product").lower().replace(" ", "-").replace("'", "")
+
+    product = {
+        "product_id": product_id,
+        "name": body.get("name", ""),
+        "slug": slug,
+        "description": body.get("description", ""),
+        "story": body.get("story", ""),
+        "price": float(body.get("price", 0)),
+        "original_price": float(body["original_price"]) if body.get("original_price") else None,
+        "category": body.get("category", ""),
+        "material": body.get("material", ""),
+        "color": body.get("color", ""),
+        "images": normalize_images(body.get("images", [])),
+        "stock": int(body.get("stock", 0)),
+        "featured": bool(body.get("featured", False)),
+        "rating_avg": 0,
+        "rating_count": 0,
+        "likes": 0,
+        "dislikes": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.products.insert_one(product)
+    product.pop("_id", None)
+    return product
+
+
+@api_router.put("/admin/products/{product_id}")
+async def admin_update_product(product_id: str, request: Request, admin: dict = Depends(get_admin_user)):
+    body = await request.json()
+    existing = await db.products.find_one({"product_id": product_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    allowed = {"name", "description", "story", "price", "original_price", "category",
+               "material", "color", "images", "stock", "featured"}
+    update = {}
+    for k, v in body.items():
+        if k in allowed:
+            if k == "images":
+                update[k] = normalize_images(v)
+            elif k == "price":
+                update[k] = float(v)
+            elif k == "original_price":
+                update[k] = float(v) if v else None
+            elif k == "stock":
+                update[k] = int(v)
+            elif k == "featured":
+                update[k] = bool(v)
+            else:
+                update[k] = v
+
+    if "name" in update:
+        update["slug"] = update["name"].lower().replace(" ", "-").replace("'", "")
+
+    if update:
+        await db.products.update_one({"product_id": product_id}, {"$set": update})
+
+    product = await db.products.find_one({"product_id": product_id}, {"_id": 0})
+    product["images"] = normalize_images(product.get("images", []))
+    return product
+
+
+@api_router.delete("/admin/products/{product_id}")
+async def admin_delete_product(product_id: str, admin: dict = Depends(get_admin_user)):
+    result = await db.products.delete_one({"product_id": product_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    # Also clean up related data
+    await db.cart.delete_many({"product_id": product_id})
+    await db.wishlist.delete_many({"product_id": product_id})
+    return {"message": "Product deleted"}
+
+
+@api_router.get("/admin/orders")
+async def admin_list_orders(
+    page: int = 1,
+    limit: int = 20,
+    status: Optional[str] = None,
+    admin: dict = Depends(get_admin_user),
+):
+    query = {}
+    if status:
+        query["status"] = status
+    total = await db.orders.count_documents(query)
+    skip = (page - 1) * limit
+    orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+
+    # Enrich with user info
+    for order in orders:
+        user = await db.users.find_one({"user_id": order.get("user_id")}, {"_id": 0, "name": 1, "email": 1})
+        order["user_name"] = user.get("name", "Unknown") if user else "Unknown"
+        order["user_email"] = user.get("email", "") if user else ""
+
+    return {"orders": orders, "total": total, "page": page, "pages": max(1, (total + limit - 1) // limit)}
+
+
+@api_router.put("/admin/orders/{order_id}/status")
+async def admin_update_order_status(order_id: str, request: Request, admin: dict = Depends(get_admin_user)):
+    body = await request.json()
+    new_status = body.get("status")
+    note = body.get("note", "")
+    valid_statuses = ["confirmed", "processing", "shipped", "delivered", "cancelled"]
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+
+    order = await db.orders.find_one({"order_id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Append to status_history
+    history_entry = {
+        "status": new_status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "note": note,
+        "updated_by": admin.get("email", "admin"),
+    }
+
+    await db.orders.update_one(
+        {"order_id": order_id},
+        {
+            "$set": {"status": new_status},
+            "$push": {"status_history": history_entry},
+        }
+    )
+
+    # If cancelling, restore stock
+    if new_status == "cancelled":
+        for item in order.get("items", []):
+            await db.products.update_one(
+                {"product_id": item["product_id"]},
+                {"$inc": {"stock": item["quantity"]}}
+            )
+
+    updated = await db.orders.find_one({"order_id": order_id}, {"_id": 0})
+    return updated
+
+
+# ─── Cloudinary Upload (ready for later) ───
+@api_router.post("/admin/upload")
+async def admin_upload_image(request: Request, admin: dict = Depends(get_admin_user)):
+    """Upload an image to Cloudinary. Returns {url, source: 'cloudinary'}."""
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+    api_key = os.environ.get("CLOUDINARY_API_KEY", "")
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET", "")
+
+    if not all([cloud_name, api_key, api_secret]):
+        raise HTTPException(status_code=501, detail="Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET to .env")
+
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+
+    import hashlib, time
+    timestamp = str(int(time.time()))
+    to_sign = f"timestamp={timestamp}{api_secret}"
+    signature = hashlib.sha1(to_sign.encode()).hexdigest()
+
+    async with httpx.AsyncClient() as http_client:
+        resp = await http_client.post(
+            f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload",
+            data={"timestamp": timestamp, "api_key": api_key, "signature": signature},
+            files={"file": (file.filename, await file.read(), file.content_type)},
+        )
+        if resp.status_code != 200:
+            logger.error(f"Cloudinary upload failed: {resp.text}")
+            raise HTTPException(status_code=500, detail="Image upload failed")
+        result = resp.json()
+
+    return {"url": result["secure_url"], "source": "cloudinary", "public_id": result.get("public_id")}
 
 
 # ─── Include router & middleware ───
