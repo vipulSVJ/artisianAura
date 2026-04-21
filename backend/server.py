@@ -1221,7 +1221,11 @@ async def admin_update_order_status(order_id: str, request: Request, admin: dict
     return updated
 
 
-# ─── Cloudinary Upload (ready for later) ───
+# ─── Cloudinary Upload ───
+import cloudinary
+import cloudinary.uploader
+import asyncio
+
 @api_router.post("/admin/upload")
 async def admin_upload_image(request: Request, admin: dict = Depends(get_admin_user)):
     """Upload an image to Cloudinary. Returns {url, source: 'cloudinary'}."""
@@ -1232,26 +1236,21 @@ async def admin_upload_image(request: Request, admin: dict = Depends(get_admin_u
     if not all([cloud_name, api_key, api_secret]):
         raise HTTPException(status_code=501, detail="Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET to .env")
 
+    cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret, secure=True)
+
     form = await request.form()
     file = form.get("file")
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
-    import hashlib, time
-    timestamp = str(int(time.time()))
-    to_sign = f"timestamp={timestamp}{api_secret}"
-    signature = hashlib.sha1(to_sign.encode()).hexdigest()
-
-    async with httpx.AsyncClient() as http_client:
-        resp = await http_client.post(
-            f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload",
-            data={"timestamp": timestamp, "api_key": api_key, "signature": signature},
-            files={"file": (file.filename, await file.read(), file.content_type)},
-        )
-        if resp.status_code != 200:
-            logger.error(f"Cloudinary upload failed: {resp.text}")
-            raise HTTPException(status_code=500, detail="Image upload failed")
-        result = resp.json()
+    contents = await file.read()
+    
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(None, lambda: cloudinary.uploader.upload(contents, folder="artisianaura/products"))
+    except Exception as e:
+        logger.error(f"Cloudinary upload failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"url": result["secure_url"], "source": "cloudinary", "public_id": result.get("public_id")}
 

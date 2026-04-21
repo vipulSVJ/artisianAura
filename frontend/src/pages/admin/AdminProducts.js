@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Pencil, Trash2, Search, X, ImagePlus, Star, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ export default function AdminProducts() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -83,6 +85,30 @@ export default function AdminProducts() {
       ...prev,
       images: prev.images.filter((_, i) => i !== idx),
     }));
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploading(true);
+      const res = await API.post('/admin/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setForm(prev => ({
+        ...prev,
+        images: [...prev.images, { url: res.data.url, source: 'cloudinary' }],
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to upload image. Please check credentials.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSave = async () => {
@@ -384,8 +410,24 @@ export default function AdminProducts() {
                       className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-stone-400"
                       onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addImageUrl())}
                     />
-                    <Button onClick={addImageUrl} variant="outline" className="rounded-xl px-4">
+                    <Button onClick={addImageUrl} variant="outline" className="rounded-xl px-4 shrink-0">
                       <Plus size={16} />
+                    </Button>
+                    <div className="w-px bg-stone-200 mx-1 self-stretch my-1"></div>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      ref={fileInputRef} 
+                      onChange={handleFileUpload} 
+                    />
+                    <Button 
+                      onClick={(e) => { e.preventDefault(); fileInputRef.current?.click(); }} 
+                      variant="outline" 
+                      className="rounded-xl px-4 shrink-0 min-w-[120px]" 
+                      disabled={uploading}
+                    >
+                      {uploading ? 'Uploading...' : <><ImagePlus size={16} className="mr-2" /> Upload</>}
                     </Button>
                   </div>
                   {form.images.length > 0 && (
