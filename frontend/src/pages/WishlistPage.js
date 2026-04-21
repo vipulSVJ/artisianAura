@@ -14,17 +14,16 @@ export default function WishlistPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchWishlist = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const res = await API.get('/wishlist');
-      setItems(res.data.items || []);
-    } catch { /* ignore */ }
-    setLoading(false);
-  };
-
   useEffect(() => {
+    const fetchWishlist = async () => {
+      setLoading(true);
+      try {
+        const res = await API.get('/wishlist');
+        setItems(res.data.items || []);
+      } catch { /* ignore */ }
+      setLoading(false);
+    };
+
     if (user) fetchWishlist();
     else setLoading(false);
   }, [user]);
