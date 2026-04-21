@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: artisianaura_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - CORS_ORIGINS=http://localhost:3000
+      - FRONTEND_URL=http://localhost:3000
+    env_file:
+      - ./backend/.env # Loads local .env for local testing
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Crucial for local Docker testing so frontend hits Docker backend
+        - REACT_APP_BACKEND_URL=http://localhost:8000
+        # Pass Razorpay Key to frontend at build time
+        - REACT_APP_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+    container_name: artisianaura_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend

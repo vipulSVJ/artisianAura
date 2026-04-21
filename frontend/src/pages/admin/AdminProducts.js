@@ -10,6 +10,20 @@ const emptyProduct = {
   category: '', material: '', color: '', stock: '', featured: false, images: [],
 };
 
+const InputField = ({ label, field, type = 'text', form, setForm, ...props }) => (
+  <div>
+    <label className="text-xs uppercase tracking-wider text-stone-500 mb-1.5 block font-medium">{label}</label>
+    <input
+      type={type}
+      value={form[field]}
+      onChange={(e) => setForm(prev => ({ ...prev, [field]: e.target.value }))}
+      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-stone-400 transition-colors"
+      {...props}
+    />
+  </div>
+);
+
+
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -149,19 +163,6 @@ export default function AdminProducts() {
       toast.error('Failed to delete product');
     }
   };
-
-  const InputField = ({ label, field, type = 'text', ...props }) => (
-    <div>
-      <label className="text-xs uppercase tracking-wider text-stone-500 mb-1.5 block font-medium">{label}</label>
-      <input
-        type={type}
-        value={form[field]}
-        onChange={(e) => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-stone-400 transition-colors"
-        {...props}
-      />
-    </div>
-  );
 
   return (
     <div>
@@ -347,11 +348,11 @@ export default function AdminProducts() {
               </div>
 
               <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
-                <InputField label="Name" field="name" placeholder="Product name" />
+                <InputField label="Name" field="name" form={form} setForm={setForm} placeholder="Product name" />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <InputField label="Price (₹)" field="price" type="number" placeholder="0.00" />
-                  <InputField label="Original Price (₹)" field="original_price" type="number" placeholder="Optional" />
+                  <InputField label="Price (₹)" field="price" type="number" form={form} setForm={setForm} placeholder="0.00" />
+                  <InputField label="Original Price (₹)" field="original_price" type="number" form={form} setForm={setForm} placeholder="Optional" />
                 </div>
 
                 <div>
@@ -377,13 +378,13 @@ export default function AdminProducts() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  <InputField label="Category" field="category" placeholder="e.g. Ceramics" />
-                  <InputField label="Material" field="material" placeholder="e.g. Clay" />
-                  <InputField label="Color" field="color" placeholder="e.g. Sage" />
+                  <InputField label="Category" field="category" form={form} setForm={setForm} placeholder="e.g. Ceramics" />
+                  <InputField label="Material" field="material" form={form} setForm={setForm} placeholder="e.g. Clay" />
+                  <InputField label="Color" field="color" form={form} setForm={setForm} placeholder="e.g. Sage" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <InputField label="Stock" field="stock" type="number" placeholder="0" />
+                  <InputField label="Stock" field="stock" type="number" form={form} setForm={setForm} placeholder="0" />
                   <div>
                     <label className="text-xs uppercase tracking-wider text-stone-500 mb-1.5 block font-medium">Featured</label>
                     <button
