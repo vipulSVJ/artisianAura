@@ -89,11 +89,9 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 async def google_login():
     """Redirect the browser to Google's OAuth consent screen."""
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
-    redirect_uri = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000').rstrip('/')}/api/auth/google/callback".replace(
-        "/api/auth/google/callback", ""
-    )
-    # The redirect_uri must match what's registered in Google Cloud Console
-    backend_callback = "http://localhost:8000/api/auth/google/callback"
+    backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000").rstrip("/")
+    backend_callback = f"{backend_url}/api/auth/google/callback"
+    
     params = {
         "client_id": client_id,
         "redirect_uri": backend_callback,
@@ -111,12 +109,12 @@ async def google_login():
 async def google_callback(code: str = None, error: str = None):
     """Handle Google's redirect, exchange code for user info, create session."""
     from starlette.responses import RedirectResponse
-    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000").rstrip("/")
+    backend_callback = f"{backend_url}/api/auth/google/callback"
 
     if error or not code:
         return RedirectResponse(f"{frontend_url}/?auth=error")
-
-    backend_callback = "http://localhost:8000/api/auth/google/callback"
 
     # 1. Exchange authorization code for tokens
     async with httpx.AsyncClient() as http_client:
