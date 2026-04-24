@@ -1026,6 +1026,47 @@ def normalize_images(images):
 
 # ─── Admin Endpoints ───
 
+@api_router.get("/admin/users")
+async def admin_list_users(
+    page: int = 1,
+    limit: int = 20,
+    search: Optional[str] = None,
+    admin: dict = Depends(get_admin_user)
+):
+    query = {}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}}
+        ]
+    total = await db.users.count_documents(query)
+    skip = (page - 1) * limit
+    users = await db.users.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    return {"users": users, "total": total, "page": page, "pages": max(1, (total + limit - 1) // limit)}
+
+
+@api_router.put("/admin/users/{user_id}/role")
+async def admin_update_user_role(user_id: str, request: Request, admin: dict = Depends(get_admin_user)):
+    body = await request.json()
+    is_admin = bool(body.get("is_admin", False))
+    
+    # Prevent admin from removing their own admin status to avoid locking out the system
+    if user_id == admin.get("user_id") and not is_admin:
+        raise HTTPException(status_code=400, detail="Cannot remove your own admin privileges")
+
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_admin": is_admin}}
+    )
+    
+    updated_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    return updated_user
+
+
 @api_router.get("/admin/stats")
 async def admin_stats(admin: dict = Depends(get_admin_user)):
     total_products = await db.products.count_documents({})

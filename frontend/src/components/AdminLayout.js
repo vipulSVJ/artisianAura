@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Package, ShoppingCart, ChevronLeft, LogOut, Upload } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, ChevronLeft, LogOut, Upload, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
   { label: 'Products', icon: Package, path: '/admin/products' },
   { label: 'Orders', icon: ShoppingCart, path: '/admin/orders' },
+  { label: 'Users', icon: Users, path: '/admin/users' },
 ];
 
 export default function AdminLayout() {
