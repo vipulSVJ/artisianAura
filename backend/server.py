@@ -148,15 +148,17 @@ async def google_callback(code: str = None, error: str = None):
     picture = google_user.get("picture", "")
 
     # 3. Create or update user in MongoDB
-    # Check if this email should be an admin
-    is_admin = email.lower() in ADMIN_EMAILS
+    # Check if this email should be an admin via ENV
+    is_admin_env = email.lower() in ADMIN_EMAILS
 
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         user_id = existing["user_id"]
+        # Preserve admin status if they were already promoted via UI, or upgrade if in ENV
+        final_is_admin = existing.get("is_admin", False) or is_admin_env
         await db.users.update_one(
             {"email": email},
-            {"$set": {"name": name, "picture": picture, "is_admin": is_admin}}
+            {"$set": {"name": name, "picture": picture, "is_admin": final_is_admin}}
         )
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
@@ -169,7 +171,7 @@ async def google_callback(code: str = None, error: str = None):
             "picture": picture,
             "phone": "",
             "address": {},
-            "is_admin": is_admin,
+            "is_admin": is_admin_env,
             "referral_code": referral_code,
             "referral_count": 0,
             "referred_by": None,
@@ -1065,6 +1067,40 @@ async def admin_update_user_role(user_id: str, request: Request, admin: dict = D
     
     updated_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     return updated_user
+
+
+@api_router.post("/admin/users/invite")
+async def admin_invite_user(request: Request, admin: dict = Depends(get_admin_user)):
+    body = await request.json()
+    email = body.get("email", "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        if existing.get("is_admin"):
+            raise HTTPException(status_code=400, detail="User is already an admin")
+        await db.users.update_one({"email": email}, {"$set": {"is_admin": True}})
+        return {"message": f"Existing user {email} was upgraded to Admin!"}
+    
+    # Create stub user
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    ref_name = "INV"
+    referral_code = f"{ref_name}{uuid.uuid4().hex[:5].upper()}"
+    await db.users.insert_one({
+        "user_id": user_id,
+        "email": email,
+        "name": "Pending Invite",
+        "picture": "",
+        "phone": "",
+        "address": {},
+        "is_admin": True,
+        "referral_code": referral_code,
+        "referral_count": 0,
+        "referred_by": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    return {"message": f"Invitation created. When {email} logs in via Google, they will automatically be an Admin."}
 
 
 @api_router.get("/admin/stats")

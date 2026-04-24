@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Search, Shield, ShieldAlert, User as UserIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Shield, ShieldAlert, User as UserIcon, Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import API from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,9 @@ export default function AdminUsers() {
   const [pages, setPages] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -48,6 +52,24 @@ export default function AdminUsers() {
     }
   };
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+    setInviting(true);
+    try {
+      const res = await API.post('/admin/users/invite', { email: inviteEmail });
+      toast.success(res.data.message);
+      setInviteModalOpen(false);
+      setInviteEmail('');
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to invite admin');
+    }
+    setInviting(false);
+  };
+
   return (
     <div>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
@@ -57,6 +79,12 @@ export default function AdminUsers() {
             <h1 className="font-heading text-4xl font-light text-stone-900">Users</h1>
             <p className="text-sm text-stone-400 mt-1">{total} registered users</p>
           </div>
+          <Button
+            onClick={() => setInviteModalOpen(true)}
+            className="bg-stone-900 text-white hover:bg-stone-800 rounded-full px-6 py-5 text-xs uppercase tracking-widest"
+          >
+            <Plus size={16} className="mr-2" /> Invite Admin
+          </Button>
         </div>
       </motion.div>
 
@@ -167,6 +195,52 @@ export default function AdminUsers() {
           ))}
         </div>
       )}
+
+      {/* Invite Modal */}
+      <AnimatePresence>
+        {inviteModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]"
+            onClick={() => setInviteModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-sm mx-4 shadow-xl w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-medium text-stone-900">Invite Admin</h3>
+                <button onClick={() => setInviteModalOpen(false)} className="text-stone-400 hover:text-stone-600">
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-stone-500 mb-4">
+                Enter an email address to grant them Admin privileges. If they don't have an account yet, they will automatically become an Admin when they sign in with Google.
+              </p>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="admin@example.com"
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-stone-400 transition-colors mb-6"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+              />
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setInviteModalOpen(false)} className="rounded-full">Cancel</Button>
+                <Button onClick={handleInvite} disabled={inviting} className="bg-stone-900 text-white hover:bg-stone-800 rounded-full">
+                  {inviting ? 'Inviting...' : 'Send Invite'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
